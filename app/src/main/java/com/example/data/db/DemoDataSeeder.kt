@@ -25,6 +25,20 @@ object DemoDataSeeder {
         )
         val patientId = db.userDao().insertUser(patient)
 
+        // 1b. Insert Second Sample Patient (to demonstrate multi-patient linking)
+        val patient2 = UserEntity(
+            email = "bimal@demo.com",
+            passwordHash = "demo123",
+            fullName = "Bimal Barman",
+            role = "PATIENT",
+            age = 72,
+            gender = "Male",
+            preferredLanguage = "en",
+            locationState = "Meghalaya",
+            patientCode = "NER-3109"
+        )
+        val patient2Id = db.userDao().insertUser(patient2)
+
         // 2. Insert Sample Caregiver
         val caregiver = UserEntity(
             email = "caregiver@demo.com",
@@ -39,6 +53,20 @@ object DemoDataSeeder {
         )
         val caregiverId = db.userDao().insertUser(caregiver)
 
+        // Link patients to demo caregiver
+        db.userDao().insertLink(
+            com.example.data.model.CaregiverPatientLinkEntity(
+                caregiverId = caregiverId,
+                patientId = patientId
+            )
+        )
+        db.userDao().insertLink(
+            com.example.data.model.CaregiverPatientLinkEntity(
+                caregiverId = caregiverId,
+                patientId = patient2Id
+            )
+        )
+
         // 3. Settings for Patient
         val settings = SettingsEntity(
             userId = patientId,
@@ -52,13 +80,13 @@ object DemoDataSeeder {
         )
         db.settingsDao().saveSettings(settings)
 
-        // 4. Sample Game Attempts over the last few days
+        // 4. Sample Game Attempts over the last few days (seeded for Bimal Barman to showcase caregiver analytics)
         val now = System.currentTimeMillis()
         val dayMs = 86400000L
 
         val demoAttempts = listOf(
             GameAttemptEntity(
-                userId = patientId,
+                userId = patient2Id,
                 gameId = "day_date",
                 gameCategory = "orientation",
                 level = 1,
@@ -72,7 +100,7 @@ object DemoDataSeeder {
                 recommendationMessage = "Outstanding! Ready for Level 2."
             ),
             GameAttemptEntity(
-                userId = patientId,
+                userId = patient2Id,
                 gameId = "place_time",
                 gameCategory = "orientation",
                 level = 1,
@@ -86,7 +114,7 @@ object DemoDataSeeder {
                 recommendationMessage = "Good effort! Let's practice Level 1 again."
             ),
             GameAttemptEntity(
-                userId = patientId,
+                userId = patient2Id,
                 gameId = "memory_match",
                 gameCategory = "memory",
                 level = 1,
@@ -100,7 +128,7 @@ object DemoDataSeeder {
                 recommendationMessage = "Excellent memory recall! Advance to Level 2."
             ),
             GameAttemptEntity(
-                userId = patientId,
+                userId = patient2Id,
                 gameId = "find_target",
                 gameCategory = "attention",
                 level = 1,
@@ -114,7 +142,7 @@ object DemoDataSeeder {
                 recommendationMessage = "Great focus! Ready for Level 2."
             ),
             GameAttemptEntity(
-                userId = patientId,
+                userId = patient2Id,
                 gameId = "simple_pattern",
                 gameCategory = "reasoning",
                 level = 1,
@@ -128,7 +156,7 @@ object DemoDataSeeder {
                 recommendationMessage = "Good practice! Continue with Level 1."
             ),
             GameAttemptEntity(
-                userId = patientId,
+                userId = patient2Id,
                 gameId = "remember_objects",
                 gameCategory = "memory",
                 level = 1,

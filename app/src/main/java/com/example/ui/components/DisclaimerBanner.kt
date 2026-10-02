@@ -58,7 +58,7 @@ fun DisclaimerBanner(
             Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Text(
-                    text = "Cognitive Activity Notice",
+                    text = StringsProvider.get("disclaimer_notice_title", currentLanguage),
                     fontWeight = FontWeight.Bold,
                     fontSize = (13f * fontSizeScale.scale).sp,
                     color = textColor

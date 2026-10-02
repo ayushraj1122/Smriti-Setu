@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.FontSizeScale
 import com.example.data.model.GameAttemptEntity
+import com.example.i18n.StringsProvider
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -37,6 +38,7 @@ fun AccuracyTrendChart(
     attempts: List<GameAttemptEntity>,
     highContrast: Boolean = false,
     fontSizeScale: FontSizeScale = FontSizeScale.STANDARD,
+    currentLanguage: String = "en",
     modifier: Modifier = Modifier
 ) {
     val displayAttempts = attempts.take(7).reversed()
@@ -46,7 +48,7 @@ fun AccuracyTrendChart(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Accuracy Over Recent Sessions (%)",
+            text = StringsProvider.get("chart_accuracy_title", currentLanguage),
             fontWeight = FontWeight.Bold,
             fontSize = (14f * fontSizeScale.scale).sp,
             color = textColor
@@ -62,7 +64,7 @@ fun AccuracyTrendChart(
                     .background(if (highContrast) Color(0xFF1E293B) else Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No recent game data yet.", color = textColor.copy(alpha = 0.7f))
+                Text(StringsProvider.get("chart_no_data", currentLanguage), color = textColor.copy(alpha = 0.7f))
             }
             return
         }
@@ -129,6 +131,7 @@ fun ResponseTimeChart(
     attempts: List<GameAttemptEntity>,
     highContrast: Boolean = false,
     fontSizeScale: FontSizeScale = FontSizeScale.STANDARD,
+    currentLanguage: String = "en",
     modifier: Modifier = Modifier
 ) {
     val displayAttempts = attempts.take(6).reversed()
@@ -136,7 +139,7 @@ fun ResponseTimeChart(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Average Response Time (Seconds)",
+            text = StringsProvider.get("chart_response_time_title", currentLanguage),
             fontWeight = FontWeight.Bold,
             fontSize = (14f * fontSizeScale.scale).sp,
             color = textColor
@@ -152,7 +155,7 @@ fun ResponseTimeChart(
                     .background(if (highContrast) Color(0xFF1E293B) else Color(0xFFF1F5F9)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Waiting for activity sessions...", color = textColor.copy(alpha = 0.7f))
+                Text(StringsProvider.get("chart_waiting_data", currentLanguage), color = textColor.copy(alpha = 0.7f))
             }
             return
         }
@@ -170,16 +173,25 @@ fun ResponseTimeChart(
                 val safeSecStr = String.format(Locale.US, "%.1fs", seconds)
                 val progressFraction = (seconds / 8.0f).coerceIn(0.1f, 1f)
 
+                val catKey = when (attempt.gameCategory.lowercase()) {
+                    "orientation" -> "cat_orientation"
+                    "memory" -> "cat_memory"
+                    "attention" -> "cat_attention"
+                    "reasoning" -> "cat_reasoning"
+                    else -> attempt.gameCategory
+                }
+                val localizedCatName = StringsProvider.get(catKey, currentLanguage)
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = attempt.gameCategory.replaceFirstChar { it.uppercase() },
+                        text = localizedCatName,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColor,
-                        modifier = Modifier.width(75.dp)
+                        modifier = Modifier.width(85.dp)
                     )
                     Box(
                         modifier = Modifier
@@ -215,6 +227,7 @@ fun CategoryBreakdownChart(
     attempts: List<GameAttemptEntity>,
     highContrast: Boolean = false,
     fontSizeScale: FontSizeScale = FontSizeScale.STANDARD,
+    currentLanguage: String = "en",
     modifier: Modifier = Modifier
 ) {
     val textColor = if (highContrast) Color.White else Color(0xFF334155)
@@ -222,7 +235,7 @@ fun CategoryBreakdownChart(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Cognitive Category Performance",
+            text = StringsProvider.get("chart_category_title", currentLanguage),
             fontWeight = FontWeight.Bold,
             fontSize = (14f * fontSizeScale.scale).sp,
             color = textColor
@@ -246,19 +259,28 @@ fun CategoryBreakdownChart(
                 }
                 val count = catAttempts.size
 
+                val catKey = when (cat.lowercase()) {
+                    "orientation" -> "cat_orientation"
+                    "memory" -> "cat_memory"
+                    "attention" -> "cat_attention"
+                    "reasoning" -> "cat_reasoning"
+                    else -> cat
+                }
+                val localizedCatName = StringsProvider.get(catKey, currentLanguage)
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.width(90.dp)) {
                         Text(
-                            text = cat.replaceFirstChar { it.uppercase() },
+                            text = localizedCatName,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = textColor
                         )
                         Text(
-                            text = "$count sessions",
+                            text = StringsProvider.get("stat_session_count", currentLanguage, count),
                             fontSize = 10.sp,
                             color = textColor.copy(alpha = 0.6f)
                         )

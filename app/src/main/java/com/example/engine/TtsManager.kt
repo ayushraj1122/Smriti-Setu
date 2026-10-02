@@ -11,6 +11,7 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
     private var isInitialized = false
     private var isMuted = false
     private var speechRate = 0.9f
+    private var pendingSpeech: Pair<String, String>? = null
 
     init {
         try {
@@ -24,6 +25,10 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
         if (status == TextToSpeech.SUCCESS) {
             isInitialized = true
             tts?.setSpeechRate(speechRate)
+            pendingSpeech?.let { (text, lang) ->
+                pendingSpeech = null
+                speak(text, lang)
+            }
         }
     }
 
@@ -40,18 +45,51 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
     }
 
     fun speak(text: String, langCode: String = "en") {
-        if (isMuted || !isInitialized || text.isBlank()) return
+        if (isMuted || text.isBlank()) return
+        if (!isInitialized) {
+            pendingSpeech = Pair(text, langCode)
+            return
+        }
 
         try {
-            val locale = when (langCode.lowercase()) {
-                "hi" -> Locale("hi", "IN")
-                "bn", "as" -> Locale("bn", "IN")
-                else -> Locale.ENGLISH
+            val locale = resolveLocale(langCode)
+            val result = tts?.setLanguage(locale)
+            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                // Fallback for Indian regional languages
+                val fallbackLocale = when (langCode.lowercase()) {
+                    "as", "bn" -> Locale("bn", "IN")
+                    "hi", "mni", "nag" -> Locale("hi", "IN")
+                    else -> Locale.ENGLISH
+                }
+                tts?.setLanguage(fallbackLocale)
             }
-            tts?.language = locale
             tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "smriti_tts_${System.currentTimeMillis()}")
         } catch (e: Exception) {
             Log.w("TtsManager", "TTS speech failed", e)
+        }
+    }
+
+    private fun resolveLocale(langCode: String): Locale {
+        return when (langCode.lowercase()) {
+            "hi" -> Locale("hi", "IN")
+            "bn" -> Locale("bn", "IN")
+            "as" -> {
+                val asLoc = Locale("as", "IN")
+                val avail = tts?.isLanguageAvailable(asLoc) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                if (avail >= TextToSpeech.LANG_AVAILABLE) asLoc else Locale("bn", "IN")
+            }
+            "mni" -> {
+                val mniLoc = Locale("mni", "IN")
+                val avail = tts?.isLanguageAvailable(mniLoc) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                if (avail >= TextToSpeech.LANG_AVAILABLE) mniLoc else Locale("hi", "IN")
+            }
+            "kha", "lus" -> {
+                val loc = Locale(langCode.lowercase(), "IN")
+                val avail = tts?.isLanguageAvailable(loc) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                if (avail >= TextToSpeech.LANG_AVAILABLE) loc else Locale.ENGLISH
+            }
+            "nag" -> Locale("hi", "IN")
+            else -> Locale.ENGLISH
         }
     }
 

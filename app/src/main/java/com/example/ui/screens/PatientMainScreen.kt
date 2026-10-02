@@ -1,8 +1,10 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Extension
@@ -56,8 +59,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import android.widget.Toast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppLanguage
@@ -111,6 +119,10 @@ fun PatientMainScreen(
     val navSelectedColor = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantNavIndicatorText
     val navIndicatorColor = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantNavIndicator
     val navUnselectedColor = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantTextMuted
+
+    val recommendedGame = remember(attempts) {
+        com.example.engine.AdaptiveEngine.getRecommendedGame(attempts)
+    }
 
     Scaffold(
         topBar = {
@@ -240,7 +252,8 @@ fun PatientMainScreen(
                     fontSizeScale = fontSizeScale,
                     largeButtons = largeButtons,
                     onSpeak = onSpeak,
-                    onStartRecommendedGame = { onLaunchGame("day_date", 1) },
+                    recommendedGame = recommendedGame,
+                    onLaunchGame = onLaunchGame,
                     onSelectCategory = onSelectCategory,
                     onNavigateToTab = onTabSelected
                 )
@@ -271,6 +284,7 @@ fun PatientMainScreen(
                     onToggleLargeButtons = onToggleLargeButtons,
                     voiceEnabled = voiceEnabled,
                     onToggleVoice = onToggleVoice,
+                    onSpeak = onSpeak,
                     onLogout = onLogout
                 )
             }
@@ -288,7 +302,8 @@ private fun PatientHomeContent(
     fontSizeScale: FontSizeScale,
     largeButtons: Boolean,
     onSpeak: (String) -> Unit,
-    onStartRecommendedGame: () -> Unit,
+    recommendedGame: com.example.engine.AdaptiveEngine.RecommendedGameInfo,
+    onLaunchGame: (gameId: String, level: Int) -> Unit,
     onSelectCategory: (GameCategory) -> Unit,
     onNavigateToTab: (PatientTab) -> Unit
 ) {
@@ -297,6 +312,9 @@ private fun PatientHomeContent(
     val patientName = user?.fullName ?: "Arun"
     val initials = patientName.split(" ").mapNotNull { it.firstOrNull()?.toString() }.take(2).joinToString("").ifEmpty { "AD" }
     val stateLocation = user?.locationState ?: "Assam, North East India"
+    val recGameDef = com.example.data.model.GameCatalog.getById(recommendedGame.gameId)
+    val recGameTitle = recGameDef?.let { StringsProvider.get(it.titleKey, currentLanguage) } ?: StringsProvider.get(recommendedGame.gameTitleKey, currentLanguage)
+    val recGameDesc = recGameDef?.let { StringsProvider.get(it.subtitleKey, currentLanguage) } ?: StringsProvider.get(recommendedGame.gameSubtitleKey, currentLanguage)
 
     val textPrimary = if (highContrast) Color.White else com.example.ui.theme.VibrantTextPrimary
     val cardBg = if (highContrast) Color(0xFF1E293B) else Color.White
@@ -388,41 +406,65 @@ private fun PatientHomeContent(
                 ) {
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = if (highContrast) Color(0xFF334155) else Color.White.copy(alpha = 0.7f)
+                        color = if (highContrast) Color(0xFF334155) else Color.White.copy(alpha = 0.85f)
                     ) {
                         Text(
-                            text = "TODAY'S ACTIVITY",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                            color = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantOnBlueContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            text = "${StringsProvider.get("label_recommended", currentLanguage).uppercase()} • ACTIVITY ${recommendedGame.cycleIndex} OF ${recommendedGame.totalGamesInCycle}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.5.sp,
+                            color = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                         )
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(com.example.ui.theme.VibrantAlertRed)
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (highContrast) Color(0xFF1E3A8A) else com.example.ui.theme.VibrantBluePrimary
+                    ) {
+                        Text(
+                            text = "${StringsProvider.get("label_level", currentLanguage).replace(":", "").trim()} ${recommendedGame.level}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
                 }
 
                 Text(
-                    text = "Ready to train your memory?",
+                    text = "${recommendedGame.iconEmoji} $recGameTitle",
                     fontSize = (22f * fontSizeScale.scale).sp,
                     fontWeight = FontWeight.Bold,
                     color = if (highContrast) Color.White else com.example.ui.theme.VibrantOnBlueContainer
                 )
 
                 Text(
-                    text = "Recommended: Day & Date (Level 1) • $todayFormatted",
+                    text = recGameDesc,
                     fontSize = (13f * fontSizeScale.scale).sp,
-                    color = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantTextSecondary
+                    color = if (highContrast) Color(0xFFCBD5E1) else com.example.ui.theme.VibrantTextSecondary
                 )
 
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (highContrast) Color(0xFF0F172A) else Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "💡 ${recommendedGame.reasonText}",
+                            fontSize = (12f * fontSizeScale.scale).sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantTextSecondary
+                        )
+                    }
+                }
+
                 androidx.compose.material3.Button(
-                    onClick = onStartRecommendedGame,
+                    onClick = { onLaunchGame(recommendedGame.gameId, recommendedGame.level) },
                     shape = RoundedCornerShape(18.dp),
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                         containerColor = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary,
@@ -438,7 +480,7 @@ private fun PatientHomeContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Play Game",
+                            text = "${StringsProvider.get("btn_play_game", currentLanguage)}: $recGameTitle",
                             fontWeight = FontWeight.Bold,
                             fontSize = (16f * fontSizeScale.scale).sp
                         )
@@ -457,7 +499,7 @@ private fun PatientHomeContent(
 
         // "Choose a Category" Section
         Text(
-            text = "CHOOSE A CATEGORY",
+            text = StringsProvider.get("label_choose_category", currentLanguage),
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 1.sp,
@@ -495,7 +537,7 @@ private fun PatientHomeContent(
                         color = if (highContrast) Color.White else com.example.ui.theme.VibrantOrientationText
                     )
                     Text(
-                        text = "Time & Place",
+                        text = StringsProvider.get("cat_orientation_desc", currentLanguage),
                         fontSize = 11.sp,
                         color = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantOrientationText.copy(alpha = 0.7f)
                     )
@@ -526,7 +568,7 @@ private fun PatientHomeContent(
                         color = if (highContrast) Color.White else com.example.ui.theme.VibrantMemoryText
                     )
                     Text(
-                        text = "Recall & Match",
+                        text = StringsProvider.get("cat_memory_desc", currentLanguage),
                         fontSize = 11.sp,
                         color = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantMemoryText.copy(alpha = 0.7f)
                     )
@@ -564,7 +606,7 @@ private fun PatientHomeContent(
                         color = if (highContrast) Color.White else com.example.ui.theme.VibrantAttentionText
                     )
                     Text(
-                        text = "Focus & Speed",
+                        text = StringsProvider.get("cat_attention_desc", currentLanguage),
                         fontSize = 11.sp,
                         color = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantAttentionText.copy(alpha = 0.7f)
                     )
@@ -595,7 +637,7 @@ private fun PatientHomeContent(
                         color = if (highContrast) Color.White else com.example.ui.theme.VibrantReasoningText
                     )
                     Text(
-                        text = "Logic & Order",
+                        text = StringsProvider.get("cat_reasoning_desc", currentLanguage),
                         fontSize = 11.sp,
                         color = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantReasoningText.copy(alpha = 0.7f)
                     )
@@ -628,7 +670,7 @@ private fun PatientHomeContent(
                 Spacer(modifier = Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "NEXT REMINDER",
+                        text = StringsProvider.get("label_next_reminder", currentLanguage),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp,
@@ -651,7 +693,7 @@ private fun PatientHomeContent(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Check,
-                            contentDescription = "Complete task",
+                            contentDescription = StringsProvider.get("action_complete_task", currentLanguage),
                             tint = com.example.ui.theme.VibrantGreenPrimary
                         )
                     }
@@ -663,7 +705,7 @@ private fun PatientHomeContent(
 
         // Today's Daily Routine Checklist
         Text(
-            text = "Today's Routine",
+            text = StringsProvider.get("label_daily_routine", currentLanguage),
             fontSize = (18f * fontSizeScale.scale).sp,
             fontWeight = FontWeight.Bold,
             color = textPrimary
@@ -680,7 +722,7 @@ private fun PatientHomeContent(
                     .padding(vertical = 4.dp)
             ) {
                 Text(
-                    text = "No routine tasks scheduled yet.",
+                    text = StringsProvider.get("msg_no_routine", currentLanguage),
                     color = textPrimary.copy(alpha = 0.7f),
                     modifier = Modifier.padding(16.dp)
                 )
@@ -900,7 +942,7 @@ private fun GameCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Level:",
+                    text = "${StringsProvider.get("label_level", currentLanguage)}:",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = com.example.ui.theme.VibrantTextSecondary
@@ -938,7 +980,7 @@ private fun GameCardItem(
 
             // Play Button
             AccessibleButton(
-                text = "Play ${StringsProvider.get(game.titleKey, currentLanguage)}",
+                text = "${StringsProvider.get("btn_play_game", currentLanguage)} - ${StringsProvider.get(game.titleKey, currentLanguage)}",
                 onClick = { onPlay(selectedLevel) },
                 icon = Icons.Default.PlayArrow,
                 isPrimary = true,
@@ -972,13 +1014,13 @@ private fun PatientProgressContent(
             .padding(16.dp)
     ) {
         Text(
-            text = "Your Cognitive Activity",
+            text = StringsProvider.get("progress_patient_title", currentLanguage),
             fontSize = (22f * fontSizeScale.scale).sp,
             fontWeight = FontWeight.Bold,
             color = textPrimary
         )
         Text(
-            text = "Encouraging regular engagement and tracking your progress.",
+            text = StringsProvider.get("progress_patient_subtitle", currentLanguage),
             fontSize = (13f * fontSizeScale.scale).sp,
             color = textPrimary.copy(alpha = 0.7f)
         )
@@ -991,7 +1033,7 @@ private fun PatientProgressContent(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             StatCard(
-                title = "Total Sessions",
+                title = StringsProvider.get("stat_total_sessions", currentLanguage),
                 value = "$totalGames",
                 modifier = Modifier.weight(1f),
                 emoji = "🎮",
@@ -999,7 +1041,7 @@ private fun PatientProgressContent(
                 fontSizeScale = fontSizeScale
             )
             StatCard(
-                title = "Avg Accuracy",
+                title = StringsProvider.get("stat_avg_accuracy", currentLanguage),
                 value = "$avgAccuracy%",
                 modifier = Modifier.weight(1f),
                 emoji = "🎯",
@@ -1014,7 +1056,8 @@ private fun PatientProgressContent(
         AccuracyTrendChart(
             attempts = attempts,
             highContrast = highContrast,
-            fontSizeScale = fontSizeScale
+            fontSizeScale = fontSizeScale,
+            currentLanguage = currentLanguage
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -1023,7 +1066,8 @@ private fun PatientProgressContent(
         ResponseTimeChart(
             attempts = attempts,
             highContrast = highContrast,
-            fontSizeScale = fontSizeScale
+            fontSizeScale = fontSizeScale,
+            currentLanguage = currentLanguage
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -1032,7 +1076,8 @@ private fun PatientProgressContent(
         CategoryBreakdownChart(
             attempts = attempts,
             highContrast = highContrast,
-            fontSizeScale = fontSizeScale
+            fontSizeScale = fontSizeScale,
+            currentLanguage = currentLanguage
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1058,6 +1103,7 @@ private fun PatientProfileContent(
     onToggleLargeButtons: (Boolean) -> Unit,
     voiceEnabled: Boolean,
     onToggleVoice: () -> Unit,
+    onSpeak: (String) -> Unit = {},
     onLogout: () -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -1071,7 +1117,7 @@ private fun PatientProfileContent(
             .padding(18.dp)
     ) {
         Text(
-            text = "Profile & Accessibility",
+            text = StringsProvider.get("title_profile_accessibility", currentLanguage),
             fontSize = (22f * fontSizeScale.scale).sp,
             fontWeight = FontWeight.Bold,
             color = textPrimary
@@ -1095,31 +1141,72 @@ private fun PatientProfileContent(
                     color = textPrimary
                 )
                 Text(
-                    text = "${user?.age ?: 68} years • ${user?.locationState ?: "Assam"}",
+                    text = StringsProvider.get("label_age_years", currentLanguage, user?.age ?: 68, user?.locationState ?: "Assam"),
                     fontSize = (14f * fontSizeScale.scale).sp,
                     color = com.example.ui.theme.VibrantTextSecondary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+
+                val clipboardManager = LocalClipboardManager.current
+                val context = LocalContext.current
+                val haptic = LocalHapticFeedback.current
+                val codeToCopy = user?.patientCode?.ifBlank { "NER-6842" } ?: "NER-6842"
+                val copyCodeAction = {
+                    clipboardManager.setText(AnnotatedString(codeToCopy))
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    Toast.makeText(context, "${StringsProvider.get("msg_patient_code_copied", currentLanguage)}: $codeToCopy", Toast.LENGTH_SHORT).show()
+                    onSpeak("${StringsProvider.get("msg_patient_code_copied", currentLanguage)}: $codeToCopy")
+                }
+
+                @OptIn(ExperimentalFoundationApi::class)
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = if (highContrast) Color(0xFF0F172A) else com.example.ui.theme.VibrantBlueContainer,
-                    border = BorderStroke(1.dp, if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary.copy(alpha = 0.2f))
+                    border = BorderStroke(1.5.dp, if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary.copy(alpha = 0.35f)),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .combinedClickable(
+                            onClick = copyCodeAction,
+                            onLongClick = copyCodeAction
+                        )
+                        .testTag("patient_code_copy_surface")
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Patient Code for Caregiver: ",
-                            fontSize = 12.sp,
-                            color = if (highContrast) Color.White else com.example.ui.theme.VibrantOnBlueContainer
-                        )
-                        Text(
-                            text = user?.patientCode ?: "NER-6842",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = StringsProvider.get("label_patient_code_caregiver", currentLanguage),
+                                fontSize = 12.sp,
+                                color = if (highContrast) Color.White else com.example.ui.theme.VibrantOnBlueContainer
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = codeToCopy,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp,
+                                    color = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "(${StringsProvider.get("label_copy_hint", currentLanguage)})",
+                                    fontSize = 11.sp,
+                                    color = if (highContrast) Color(0xFF94A3B8) else com.example.ui.theme.VibrantTextSecondary
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = copyCodeAction,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = StringsProvider.get("label_copy_hint", currentLanguage),
+                                tint = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary
+                            )
+                        }
                     }
                 }
             }
@@ -1140,7 +1227,7 @@ private fun PatientProfileContent(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Accessibility Preferences",
+                    text = StringsProvider.get("label_accessibility_preferences", currentLanguage),
                     fontWeight = FontWeight.Bold,
                     fontSize = (16f * fontSizeScale.scale).sp,
                     color = textPrimary
@@ -1153,7 +1240,7 @@ private fun PatientProfileContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "High Contrast Display",
+                        text = StringsProvider.get("setting_high_contrast", currentLanguage),
                         fontSize = (14f * fontSizeScale.scale).sp,
                         color = textPrimary
                     )
@@ -1174,7 +1261,7 @@ private fun PatientProfileContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Extra Large Buttons",
+                        text = StringsProvider.get("setting_large_buttons", currentLanguage),
                         fontSize = (14f * fontSizeScale.scale).sp,
                         color = textPrimary
                     )
@@ -1195,7 +1282,7 @@ private fun PatientProfileContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Voice Read-Aloud (TTS)",
+                        text = StringsProvider.get("setting_voice", currentLanguage),
                         fontSize = (14f * fontSizeScale.scale).sp,
                         color = textPrimary
                     )
@@ -1211,8 +1298,13 @@ private fun PatientProfileContent(
 
                 // Font Size Selector
                 Column {
+                    val scaleKey = when (fontSizeScale) {
+                        FontSizeScale.STANDARD -> "font_standard"
+                        FontSizeScale.LARGE -> "font_large"
+                        FontSizeScale.EXTRA_LARGE -> "font_extra_large"
+                    }
                     Text(
-                        text = "Font Size (${fontSizeScale.label})",
+                        text = StringsProvider.get("setting_font_size_label", currentLanguage, StringsProvider.get(scaleKey, currentLanguage)),
                         fontSize = (14f * fontSizeScale.scale).sp,
                         color = textPrimary
                     )
@@ -1223,6 +1315,11 @@ private fun PatientProfileContent(
                     ) {
                         FontSizeScale.values().forEach { scale ->
                             val isSelected = scale == fontSizeScale
+                            val itemScaleKey = when (scale) {
+                                FontSizeScale.STANDARD -> "font_standard"
+                                FontSizeScale.LARGE -> "font_large"
+                                FontSizeScale.EXTRA_LARGE -> "font_extra_large"
+                            }
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
                                 color = if (isSelected) {
@@ -1237,7 +1334,7 @@ private fun PatientProfileContent(
                                     .clickable { onSetFontSize(scale) }
                             ) {
                                 Text(
-                                    text = scale.label,
+                                    text = StringsProvider.get(itemScaleKey, currentLanguage),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSelected) {
@@ -1259,7 +1356,7 @@ private fun PatientProfileContent(
 
         // Logout
         AccessibleButton(
-            text = "Sign Out",
+            text = StringsProvider.get("btn_sign_out", currentLanguage),
             onClick = onLogout,
             icon = Icons.Default.ExitToApp,
             isOutlined = true,

@@ -123,7 +123,7 @@ fun PatientAuthScreen(
                 fontSizeScale = fontSizeScale,
                 onCycleFontSize = onCycleFontSize,
                 onSpeakCurrentContext = onSpeakContext,
-                title = if (isSignUp) "Patient Sign Up" else "Patient Login"
+                title = if (isSignUp) StringsProvider.get("btn_sign_up", currentLanguage) else StringsProvider.get("btn_patient_login", currentLanguage)
             )
         },
         containerColor = bg
@@ -144,11 +144,11 @@ fun PatientAuthScreen(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = StringsProvider.get("btn_back_welcome", currentLanguage),
                     tint = if (highContrast) Color(0xFFFACC15) else Color(0xFF0D5C75)
                 )
                 Text(
-                    text = " Back to Welcome",
+                    text = " " + StringsProvider.get("btn_back_welcome", currentLanguage),
                     fontWeight = FontWeight.SemiBold,
                     color = if (highContrast) Color(0xFFFACC15) else Color(0xFF0D5C75),
                     fontSize = (15f * fontSizeScale.scale).sp
@@ -234,13 +234,13 @@ fun PatientAuthScreen(
             if (!isSignUp) {
                 // LOGIN FORM
                 Text(
-                    text = "Welcome to your cognitive space",
+                    text = StringsProvider.get("auth_patient_title", currentLanguage),
                     fontSize = (20f * fontSizeScale.scale).sp,
                     fontWeight = FontWeight.Bold,
                     color = textPrimary
                 )
                 Text(
-                    text = "Sign in to continue your games and activities.",
+                    text = StringsProvider.get("auth_patient_subtitle", currentLanguage),
                     fontSize = (13f * fontSizeScale.scale).sp,
                     color = textPrimary.copy(alpha = 0.7f)
                 )
@@ -250,7 +250,7 @@ fun PatientAuthScreen(
                 OutlinedTextField(
                     value = loginEmail,
                     onValueChange = { loginEmail = it },
-                    label = { Text("Email Address") },
+                    label = { Text(StringsProvider.get("label_email", currentLanguage)) },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth().testTag("input_patient_login_email"),
                     singleLine = true,
@@ -262,7 +262,7 @@ fun PatientAuthScreen(
                 OutlinedTextField(
                     value = loginPassword,
                     onValueChange = { loginPassword = it },
-                    label = { Text("Password") },
+                    label = { Text(StringsProvider.get("label_password", currentLanguage)) },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth().testTag("input_patient_login_pass"),
@@ -272,7 +272,7 @@ fun PatientAuthScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 AccessibleButton(
-                    text = "Sign In",
+                    text = StringsProvider.get("btn_patient_login", currentLanguage),
                     onClick = {
                         if (loginEmail.isBlank() || loginPassword.isBlank()) {
                             errorMessage = "Please enter both email and password."
@@ -289,7 +289,7 @@ fun PatientAuthScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 AccessibleButton(
-                    text = "Quick Demo Login (No typing needed)",
+                    text = StringsProvider.get("btn_quick_demo_patient", currentLanguage),
                     onClick = onQuickDemo,
                     isOutlined = true,
                     emoji = "⚡",
@@ -306,7 +306,7 @@ fun PatientAuthScreen(
                 ) {
                     TextButton(onClick = { onSwitchToCaregiver() }) {
                         Text(
-                            text = "Are you a Caregiver? Login here",
+                            text = StringsProvider.get("btn_switch_caregiver", currentLanguage),
                             fontWeight = FontWeight.SemiBold,
                             color = if (highContrast) Color(0xFF38BDF8) else Color(0xFF0D5C75)
                         )
@@ -315,13 +315,13 @@ fun PatientAuthScreen(
             } else {
                 // SIGN UP FORM
                 Text(
-                    text = "Create Patient Profile",
+                    text = StringsProvider.get("btn_sign_up", currentLanguage),
                     fontSize = (20f * fontSizeScale.scale).sp,
                     fontWeight = FontWeight.Bold,
                     color = textPrimary
                 )
                 Text(
-                    text = "Specialized cognitive care with North East India language support.",
+                    text = StringsProvider.get("auth_signup_subtitle", currentLanguage),
                     fontSize = (13f * fontSizeScale.scale).sp,
                     color = textPrimary.copy(alpha = 0.7f)
                 )
@@ -331,7 +331,7 @@ fun PatientAuthScreen(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Full Name *") },
+                    label = { Text(StringsProvider.get("label_full_name", currentLanguage)) },
                     leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth().testTag("input_patient_signup_name"),
                     singleLine = true
@@ -346,7 +346,7 @@ fun PatientAuthScreen(
                     OutlinedTextField(
                         value = ageStr,
                         onValueChange = { ageStr = it.filter { ch -> ch.isDigit() }.take(3) },
-                        label = { Text("Age *") },
+                        label = { Text(StringsProvider.get("label_age", currentLanguage)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f).testTag("input_patient_signup_age"),
                         singleLine = true
@@ -358,7 +358,7 @@ fun PatientAuthScreen(
                             value = gender,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Gender") },
+                            label = { Text(StringsProvider.get("label_gender", currentLanguage)) },
                             trailingIcon = {
                                 Icon(
                                     Icons.Default.ArrowDropDown,
@@ -390,7 +390,7 @@ fun PatientAuthScreen(
                         value = selectedState,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("North East State (Location) *") },
+                        label = { Text(StringsProvider.get("label_home_state", currentLanguage)) },
                         trailingIcon = {
                             Icon(
                                 Icons.Default.ArrowDropDown,
@@ -421,7 +421,7 @@ fun PatientAuthScreen(
                 OutlinedTextField(
                     value = signupEmail,
                     onValueChange = { signupEmail = it },
-                    label = { Text("Email Address *") },
+                    label = { Text(StringsProvider.get("label_email", currentLanguage)) },
                     leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth().testTag("input_patient_signup_email"),
                     singleLine = true,
@@ -433,7 +433,7 @@ fun PatientAuthScreen(
                 OutlinedTextField(
                     value = signupPassword,
                     onValueChange = { signupPassword = it },
-                    label = { Text("Password * (At least 4 characters)") },
+                    label = { Text(StringsProvider.get("label_password", currentLanguage)) },
                     leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth().testTag("input_patient_signup_pass"),
@@ -443,7 +443,7 @@ fun PatientAuthScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 AccessibleButton(
-                    text = "Complete Sign Up",
+                    text = StringsProvider.get("btn_sign_up", currentLanguage),
                     onClick = {
                         val ageInt = ageStr.toIntOrNull()
                         when {

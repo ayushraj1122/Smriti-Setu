@@ -75,3 +75,14 @@ data class SettingsEntity(
     val voiceEnabled: Boolean = true,
     val speechRate: Float = 0.9f // slightly slower for dementia readability
 )
+
+@Entity(
+    tableName = "caregiver_patient_links",
+    indices = [androidx.room.Index(value = ["caregiverId", "patientId"], unique = true)]
+)
+data class CaregiverPatientLinkEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val caregiverId: Long,
+    val patientId: Long,
+    val linkedAt: Long = System.currentTimeMillis()
+)

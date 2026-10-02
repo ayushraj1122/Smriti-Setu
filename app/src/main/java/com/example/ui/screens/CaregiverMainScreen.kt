@@ -1,8 +1,10 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Link
@@ -35,6 +39,8 @@ import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -45,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -61,10 +68,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import com.example.data.model.FontSizeScale
 import com.example.data.model.GameAttemptEntity
 import com.example.data.model.PerformanceTrend
@@ -91,6 +103,7 @@ fun CaregiverMainScreen(
     onTabSelected: (CaregiverTab) -> Unit,
     caregiverUser: UserEntity?,
     linkedPatient: UserEntity?,
+    linkedPatients: List<UserEntity> = emptyList(),
     allPatients: List<UserEntity>,
     onSelectPatient: (UserEntity) -> Unit,
     attempts: List<GameAttemptEntity>,
@@ -103,6 +116,7 @@ fun CaregiverMainScreen(
     onAddRoutine: (period: String, title: String, desc: String, time: String) -> Unit,
     onDeleteRoutine: (Long) -> Unit,
     onLinkPatientByCode: (code: String, onResult: (Boolean, String) -> Unit) -> Unit,
+    onUnlinkPatient: (patientId: Long, onResult: (Boolean, String) -> Unit) -> Unit = { _, _ -> },
     currentLanguage: String,
     onLanguageSelected: (String) -> Unit,
     highContrast: Boolean,
@@ -262,7 +276,10 @@ fun CaregiverMainScreen(
                 CaregiverTab.SETTINGS -> CaregiverSettingsContent(
                     caregiverUser = caregiverUser,
                     linkedPatient = linkedPatient,
+                    linkedPatients = if (linkedPatients.isNotEmpty()) linkedPatients else if (linkedPatient != null) listOf(linkedPatient) else allPatients.filter { it.role == "PATIENT" },
+                    onSelectPatient = onSelectPatient,
                     onLinkPatientByCode = onLinkPatientByCode,
+                    onUnlinkPatient = onUnlinkPatient,
                     currentLanguage = currentLanguage,
                     highContrast = highContrast,
                     onToggleHighContrast = onToggleHighContrast,
@@ -334,11 +351,46 @@ private fun CaregiverDashboardContent(
                             fontWeight = FontWeight.Bold,
                             color = textPrimary
                         )
-                        Text(
-                            text = "$patientState • Code: $patientCode",
-                            fontSize = (13f * fontSizeScale.scale).sp,
-                            color = textPrimary.copy(alpha = 0.7f)
-                        )
+                        val clipboard = LocalClipboardManager.current
+                        val ctx = LocalContext.current
+                        val haptic = LocalHapticFeedback.current
+                        val copyCode = {
+                            clipboard.setText(AnnotatedString(patientCode))
+                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            Toast.makeText(ctx, "${StringsProvider.get("msg_patient_code_copied", currentLanguage)}: $patientCode", Toast.LENGTH_SHORT).show()
+                        }
+
+                        @OptIn(ExperimentalFoundationApi::class)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (highContrast) Color(0xFF1E293B) else Color(0xFFE0F2FE),
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .combinedClickable(
+                                    onClick = copyCode,
+                                    onLongClick = copyCode
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "$patientState • Code: $patientCode",
+                                    fontSize = (12f * fontSizeScale.scale).sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (highContrast) Color(0xFF38BDF8) else Color(0xFF0369A1)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.ContentCopy,
+                                    contentDescription = "Copy Patient Code",
+                                    tint = if (highContrast) Color(0xFF38BDF8) else Color(0xFF0369A1),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
                     }
                     Surface(
                         shape = CircleShape,
@@ -503,7 +555,8 @@ private fun CaregiverDashboardContent(
         AccuracyTrendChart(
             attempts = attempts,
             highContrast = highContrast,
-            fontSizeScale = fontSizeScale
+            fontSizeScale = fontSizeScale,
+            currentLanguage = currentLanguage
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -578,7 +631,8 @@ private fun CaregiverReportsContent(
         AccuracyTrendChart(
             attempts = attempts,
             highContrast = highContrast,
-            fontSizeScale = fontSizeScale
+            fontSizeScale = fontSizeScale,
+            currentLanguage = currentLanguage
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -586,7 +640,8 @@ private fun CaregiverReportsContent(
         ResponseTimeChart(
             attempts = attempts,
             highContrast = highContrast,
-            fontSizeScale = fontSizeScale
+            fontSizeScale = fontSizeScale,
+            currentLanguage = currentLanguage
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -594,7 +649,8 @@ private fun CaregiverReportsContent(
         CategoryBreakdownChart(
             attempts = attempts,
             highContrast = highContrast,
-            fontSizeScale = fontSizeScale
+            fontSizeScale = fontSizeScale,
+            currentLanguage = currentLanguage
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -1084,11 +1140,15 @@ private fun CaregiverRoutineContent(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CaregiverSettingsContent(
     caregiverUser: UserEntity?,
     linkedPatient: UserEntity?,
+    linkedPatients: List<UserEntity> = emptyList(),
+    onSelectPatient: (UserEntity) -> Unit = {},
     onLinkPatientByCode: (code: String, onResult: (Boolean, String) -> Unit) -> Unit,
+    onUnlinkPatient: (patientId: Long, onResult: (Boolean, String) -> Unit) -> Unit = { _, _ -> },
     currentLanguage: String,
     highContrast: Boolean,
     onToggleHighContrast: () -> Unit,
@@ -1101,9 +1161,60 @@ private fun CaregiverSettingsContent(
     var linkResultMsg by remember { mutableStateOf<String?>(null) }
     var isError by remember { mutableStateOf(false) }
 
+    var showUnlinkDialog by remember { mutableStateOf(false) }
+    var patientToUnlink by remember { mutableStateOf<UserEntity?>(null) }
+
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
     val scrollState = rememberScrollState()
     val textPrimary = if (highContrast) Color.White else Color(0xFF0F172A)
     val cardBg = if (highContrast) Color(0xFF1E293B) else Color.White
+
+    // Unlink confirmation dialog
+    if (showUnlinkDialog && patientToUnlink != null) {
+        val target = patientToUnlink!!
+        AlertDialog(
+            onDismissRequest = {
+                showUnlinkDialog = false
+                patientToUnlink = null
+            },
+            title = {
+                Text(
+                    text = StringsProvider.get("dialog_confirm_unlink_title", currentLanguage),
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = StringsProvider.get("dialog_confirm_unlink_desc", currentLanguage, target.fullName)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUnlinkPatient(target.id) { _, msg ->
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                        }
+                        showUnlinkDialog = false
+                        patientToUnlink = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) {
+                    Text(StringsProvider.get("btn_unlink_confirm", currentLanguage), color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showUnlinkDialog = false
+                    patientToUnlink = null
+                }) {
+                    Text(StringsProvider.get("btn_cancel", currentLanguage))
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -1120,55 +1231,277 @@ private fun CaregiverSettingsContent(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Link Patient Card
+        // SECTION: Linked Patient Accounts (Above Accessibility & Voice)
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth().testTag("section_linked_accounts"),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = cardBg),
-            border = if (highContrast) BorderStroke(2.dp, Color.White) else BorderStroke(1.dp, Color(0xFFE2E8F0))
+            border = if (highContrast) BorderStroke(2.dp, Color.White) else BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Link or Switch Patient",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = (16f * fontSizeScale.scale).sp,
-                    color = textPrimary
-                )
-                Text(
-                    text = "Currently linked: ${linkedPatient?.fullName ?: "None"} (${linkedPatient?.patientCode ?: "None"})",
-                    fontSize = 13.sp,
-                    color = textPrimary.copy(alpha = 0.7f)
-                )
+            Column(modifier = Modifier.padding(18.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = StringsProvider.get("title_linked_patients", currentLanguage),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (17f * fontSizeScale.scale).sp,
+                            color = textPrimary
+                        )
+                        Text(
+                            text = StringsProvider.get("subtitle_linked_patients", currentLanguage),
+                            fontSize = (12f * fontSizeScale.scale).sp,
+                            color = textPrimary.copy(alpha = 0.7f),
+                            lineHeight = 16.sp
+                        )
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = if (highContrast) Color(0xFF0F172A) else Color(0xFFE0F2FE),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = "👥", fontSize = 18.sp)
+                        }
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                OutlinedTextField(
-                    value = patientCodeInput,
-                    onValueChange = { patientCodeInput = it },
-                    label = { Text("Enter Patient Code (e.g. NER-6842)") },
-                    modifier = Modifier.fillMaxWidth().testTag("input_link_patient_code"),
-                    singleLine = true
-                )
+                // List of connected patients
+                if (linkedPatients.isEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (highContrast) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = StringsProvider.get("empty_linked_patients", currentLanguage),
+                            fontSize = 13.sp,
+                            color = textPrimary.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        linkedPatients.forEach { patient ->
+                            val isCurrentlySelected = patient.id == linkedPatient?.id
+                            val patientCode = patient.patientCode.ifBlank { "NER-6842" }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (isCurrentlySelected) {
+                                    if (highContrast) Color(0xFF1E293B) else Color(0xFFF0FDF4)
+                                } else {
+                                    if (highContrast) Color(0xFF0F172A) else Color(0xFFF8FAFC)
+                                },
+                                border = if (isCurrentlySelected) {
+                                    BorderStroke(2.dp, if (highContrast) Color(0xFF22C55E) else Color(0xFF16A34A))
+                                } else {
+                                    BorderStroke(1.dp, if (highContrast) Color(0xFF475569) else Color(0xFFE2E8F0))
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (isCurrentlySelected) Color(0xFFDCFCE7) else Color(0xFFE2E8F0),
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(text = "👤", fontSize = 18.sp)
+                                            }
+                                        }
 
-                AccessibleButton(
-                    text = "Connect to Patient",
-                    onClick = {
-                        if (patientCodeInput.isNotBlank()) {
-                            onLinkPatientByCode(patientCodeInput) { success, msg ->
-                                isError = !success
-                                linkResultMsg = msg
-                                if (success) patientCodeInput = ""
+                                        Spacer(modifier = Modifier.width(10.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = patient.fullName,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = (15f * fontSizeScale.scale).sp,
+                                                    color = textPrimary
+                                                )
+                                                if (isCurrentlySelected) {
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = Color(0xFF16A34A)
+                                                    ) {
+                                                        Text(
+                                                            text = StringsProvider.get("label_active_monitoring", currentLanguage),
+                                                            color = Color.White,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Text(
+                                                text = "${patient.age}y • ${patient.locationState} • ${patient.preferredLanguage.uppercase()}",
+                                                fontSize = 12.sp,
+                                                color = textPrimary.copy(alpha = 0.7f)
+                                            )
+                                        }
+
+                                        // Delete / Remove Patient Icon Button
+                                        IconButton(
+                                            onClick = {
+                                                patientToUnlink = patient
+                                                showUnlinkDialog = true
+                                            },
+                                            modifier = Modifier.size(36.dp).testTag("btn_unlink_patient_${patient.id}")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = StringsProvider.get("btn_unlink_patient", currentLanguage),
+                                                tint = if (highContrast) Color(0xFFEF4444) else Color(0xFFDC2626)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Patient Code interactive pill (tap or hold to copy)
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = if (highContrast) Color(0xFF020617) else Color.White,
+                                        border = BorderStroke(1.dp, if (highContrast) Color(0xFFFACC15) else Color(0xFFCBD5E1)),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .combinedClickable(
+                                                onClick = {
+                                                    clipboardManager.setText(AnnotatedString(patientCode))
+                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                                    Toast.makeText(context, "${StringsProvider.get("msg_patient_code_copied", currentLanguage)}: $patientCode", Toast.LENGTH_SHORT).show()
+                                                },
+                                                onLongClick = {
+                                                    clipboardManager.setText(AnnotatedString(patientCode))
+                                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                                    Toast.makeText(context, "${StringsProvider.get("msg_patient_code_copied", currentLanguage)}: $patientCode", Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "Code: $patientCode",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (highContrast) Color(0xFFFACC15) else Color(0xFF0369A1)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.ContentCopy,
+                                                contentDescription = "Copy",
+                                                tint = if (highContrast) Color(0xFFFACC15) else Color(0xFF0369A1),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "(${StringsProvider.get("label_copy_hint", currentLanguage)})",
+                                                fontSize = 10.sp,
+                                                color = textPrimary.copy(alpha = 0.6f)
+                                            )
+                                        }
+                                    }
+
+                                    // Switch / Select Patient Button (if not already active)
+                                    if (!isCurrentlySelected) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        OutlinedButton(
+                                            onClick = {
+                                                onSelectPatient(patient)
+                                                Toast.makeText(context, "Monitoring data set to ${patient.fullName}", Toast.LENGTH_SHORT).show()
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.fillMaxWidth().height(38.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color(0xFF16A34A)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = StringsProvider.get("btn_select_patient", currentLanguage),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = textPrimary
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
-                    },
-                    icon = Icons.Default.Link,
-                    isPrimary = true,
-                    highContrast = highContrast,
-                    fontSizeScale = fontSizeScale,
-                    testTag = "btn_link_patient_submit"
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Link Another Patient input
+                Text(
+                    text = StringsProvider.get("btn_link_new_patient", currentLanguage),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = (14f * fontSizeScale.scale).sp,
+                    color = textPrimary
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = patientCodeInput,
+                        onValueChange = { patientCodeInput = it.uppercase() },
+                        placeholder = { Text("Code: e.g. NER-6842") },
+                        modifier = Modifier.weight(1f).testTag("input_link_patient_code"),
+                        singleLine = true
+                    )
+                    Button(
+                        onClick = {
+                            if (patientCodeInput.isNotBlank()) {
+                                onLinkPatientByCode(patientCodeInput) { success, msg ->
+                                    isError = !success
+                                    linkResultMsg = msg
+                                    if (success) {
+                                        patientCodeInput = ""
+                                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = if (highContrast) Color(0xFFFACC15) else Color(0xFF0D5C75)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(52.dp).testTag("btn_link_patient_submit")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = if (highContrast) Color.Black else Color.White
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Add",
+                            color = if (highContrast) Color.Black else Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
                 if (!linkResultMsg.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -1184,7 +1517,7 @@ private fun CaregiverSettingsContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Caregiver Preferences
+        // Caregiver Preferences: Accessibility & Voice
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),

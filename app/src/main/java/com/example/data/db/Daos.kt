@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.example.data.model.CaregiverPatientLinkEntity
 import com.example.data.model.GameAttemptEntity
 import com.example.data.model.ReminderEntity
 import com.example.data.model.RoutineItemEntity
@@ -25,6 +26,28 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE role = 'PATIENT' ORDER BY fullName ASC")
     fun getAllPatients(): Flow<List<UserEntity>>
+
+    @Query("""
+        SELECT u.* FROM users u
+        INNER JOIN caregiver_patient_links l ON u.id = l.patientId
+        WHERE l.caregiverId = :caregiverId
+        ORDER BY u.fullName ASC
+    """)
+    fun getLinkedPatientsForCaregiver(caregiverId: Long): Flow<List<UserEntity>>
+
+    @Query("""
+        SELECT u.* FROM users u
+        INNER JOIN caregiver_patient_links l ON u.id = l.patientId
+        WHERE l.caregiverId = :caregiverId
+        ORDER BY u.fullName ASC
+    """)
+    suspend fun getLinkedPatientsDirect(caregiverId: Long): List<UserEntity>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertLink(link: CaregiverPatientLinkEntity): Long
+
+    @Query("DELETE FROM caregiver_patient_links WHERE caregiverId = :caregiverId AND patientId = :patientId")
+    suspend fun deleteLink(caregiverId: Long, patientId: Long)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity): Long

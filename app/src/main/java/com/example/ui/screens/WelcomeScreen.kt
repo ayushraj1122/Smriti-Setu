@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -145,51 +146,128 @@ fun WelcomeScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Quick Demo Buttons (Instant access for judges)
+            // Quick Demo Buttons (Instant access for judges & evaluators)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
-                color = if (highContrast) Color(0xFF1E293B) else com.example.ui.theme.VibrantSurfaceVariant,
+                color = if (highContrast) Color(0xFF1E293B) else Color.White,
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
                     if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBorder
-                )
+                ),
+                shadowElevation = if (highContrast) 0.dp else 2.dp
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Judge & Evaluator Quick Demo (1-Tap)",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = (12f * fontSizeScale.scale).sp,
-                        color = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "⚡",
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = StringsProvider.get("demo_evaluator_title", currentLanguage),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = (12f * fontSizeScale.scale).sp,
+                            color = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        AccessibleButton(
-                            text = StringsProvider.get("btn_quick_demo_patient", currentLanguage),
+                        // Demo Patient
+                        Surface(
                             onClick = onQuickDemoPatient,
-                            emoji = "👤",
-                            isPrimary = false,
-                            highContrast = highContrast,
-                            fontSizeScale = fontSizeScale,
-                            modifier = Modifier.weight(1f),
-                            testTag = "btn_quick_demo_patient"
-                        )
-                        AccessibleButton(
-                            text = StringsProvider.get("btn_quick_demo_caregiver", currentLanguage),
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_quick_demo_patient"),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                            color = if (highContrast) Color(0xFF0F172A) else Color(0xFFEFF6FF),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (highContrast) 2.dp else 1.5.dp,
+                                color = if (highContrast) Color(0xFF38BDF8) else Color(0xFFBFDBFE)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(if (highContrast) Color(0xFF1E293B) else Color(0xFFDBEAFE)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = "👤", fontSize = 18.sp)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = StringsProvider.get("demo_patient_title", currentLanguage),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = (13f * fontSizeScale.scale).sp,
+                                    color = if (highContrast) Color.White else Color(0xFF1E3A8A),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = StringsProvider.get("demo_patient_desc", currentLanguage),
+                                    fontSize = (11f * fontSizeScale.scale).sp,
+                                    color = if (highContrast) Color(0xFF94A3B8) else Color(0xFF2563EB),
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+
+                        // Demo Caregiver
+                        Surface(
                             onClick = onQuickDemoCaregiver,
-                            emoji = "🩺",
-                            isPrimary = false,
-                            highContrast = highContrast,
-                            fontSizeScale = fontSizeScale,
-                            modifier = Modifier.weight(1f),
-                            testTag = "btn_quick_demo_caregiver"
-                        )
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_quick_demo_caregiver"),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                            color = if (highContrast) Color(0xFF0F172A) else Color(0xFFF0FDF4),
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (highContrast) 2.dp else 1.5.dp,
+                                color = if (highContrast) Color(0xFF4ADE80) else Color(0xFFBBF7D0)
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(if (highContrast) Color(0xFF1E293B) else Color(0xFFDCFCE7)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = "🩺", fontSize = 18.sp)
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = StringsProvider.get("demo_caregiver_title", currentLanguage),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = (13f * fontSizeScale.scale).sp,
+                                    color = if (highContrast) Color.White else Color(0xFF14532D),
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = StringsProvider.get("demo_caregiver_desc", currentLanguage),
+                                    fontSize = (11f * fontSizeScale.scale).sp,
+                                    color = if (highContrast) Color(0xFF94A3B8) else Color(0xFF16A34A),
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                 }
             }

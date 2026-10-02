@@ -47,6 +47,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _linkedPatient = MutableStateFlow<UserEntity?>(null)
     val linkedPatient: StateFlow<UserEntity?> = _linkedPatient.asStateFlow()
 
+    private val _linkedPatients = MutableStateFlow<List<UserEntity>>(emptyList())
+    val linkedPatients: StateFlow<List<UserEntity>> = _linkedPatients.asStateFlow()
+
     // Preferences & Accessibility
     private val _currentLanguage = MutableStateFlow(AppLanguage.ENGLISH.code)
     val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
@@ -123,9 +126,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _selectedGameCategory.value = category
     }
 
-    fun speakText(text: String) {
+    fun speakText(text: String, lang: String? = null) {
         if (_voiceEnabled.value) {
-            ttsManager.speak(text, _currentLanguage.value)
+            val languageToUse = lang ?: _currentLanguage.value
+            ttsManager.speak(text, languageToUse)
         }
     }
 
@@ -141,6 +145,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.updateUser(updated)
             _currentUser.value = updated
         }
+        val announcement = StringsProvider.get("lang_selected_announcement", code)
+        speakText(announcement, code)
     }
 
     fun toggleHighContrast(enabled: Boolean) {
@@ -185,6 +191,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (caregiver != null) {
                 _currentUser.value = caregiver
                 _currentLanguage.value = caregiver.preferredLanguage
+                refreshLinkedPatients()
                 val patient = caregiver.linkedPatientId?.let { repository.getUserById(it) }
                     ?: repository.getUserByEmail("patient@demo.com")
                 _linkedPatient.value = patient
@@ -254,6 +261,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (user != null && user.role == "CAREGIVER" && user.passwordHash == pass) {
                 _currentUser.value = user
                 _currentLanguage.value = user.preferredLanguage
+                refreshLinkedPatients()
                 val patient = user.linkedPatientId?.let { repository.getUserById(it) }
                     ?: repository.getUserByEmail("patient@demo.com")
                 _linkedPatient.value = patient
@@ -261,7 +269,93 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _caregiverTab.value = CaregiverTab.DASHBOARD
                 _currentScreen.value = Screen.CaregiverMain()
             } else {
-                onError("Caregiver account not found or password incorrect. You can use Quick Demo.")
+                onError("Caregiver account not found or password incorrect. You can use Quick Demo or create an account.")
+            }
+        }
+    }
+
+    fun signUpCaregiver(
+        name: String,
+        email: String,
+        pass: String,
+        state: String,
+        patientCode: String,
+        relationship: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            val cleanEmail = email.trim().lowercase()
+            if (cleanEmail.isBlank() || pass.isBlank() || name.isBlank()) {
+                onError("Please provide your name, email, and password.")
+                return@launch
+            }
+            val existing = repository.getUserByEmail(cleanEmail)
+            if (existing != null) {
+                onError("An account with this email already exists. Please sign in.")
+                return@launch
+            }
+            var initialPatient: UserEntity? = null
+            if (patientCode.isNotBlank()) {
+                initialPatient = repository.getPatientByCode(patientCode.trim().uppercase())
+                if (initialPatient == null) {
+                    onError("Patient code '$patientCode' not found. Please verify the code or leave blank to link later.")
+                    return@launch
+                }
+            }
+            val newCaregiver = UserEntity(
+                email = cleanEmail,
+                passwordHash = pass,
+                fullName = name.trim(),
+                role = "CAREGIVER",
+                gender = relationship.ifBlank { "Family Caregiver" },
+                preferredLanguage = _currentLanguage.value,
+                locationState = state.ifBlank { "Assam" },
+                linkedPatientId = initialPatient?.id
+            )
+            val newCaregiverId = repository.insertUser(newCaregiver)
+            val caregiverWithId = newCaregiver.copy(id = newCaregiverId)
+            _currentUser.value = caregiverWithId
+
+            if (initialPatient != null) {
+                repository.linkCaregiverToPatient(newCaregiverId, initialPatient.id)
+                _linkedPatient.value = initialPatient
+                targetPatientIdFlow.value = initialPatient.id
+                _linkedPatients.value = listOf(initialPatient)
+            } else {
+                // Link demo patient so dashboard displays helpful initial preview
+                val demoPatient = repository.getUserByEmail("patient@demo.com")
+                if (demoPatient != null) {
+                    repository.linkCaregiverToPatient(newCaregiverId, demoPatient.id)
+                    _linkedPatient.value = demoPatient
+                    targetPatientIdFlow.value = demoPatient.id
+                    _linkedPatients.value = listOf(demoPatient)
+                }
+            }
+            _caregiverTab.value = CaregiverTab.DASHBOARD
+            _currentScreen.value = Screen.CaregiverMain()
+            onSuccess()
+        }
+    }
+
+    fun refreshLinkedPatients() {
+        val caregiver = _currentUser.value ?: return
+        if (caregiver.role != "CAREGIVER") return
+        viewModelScope.launch {
+            var list = repository.getLinkedPatientsDirect(caregiver.id)
+            if (list.isEmpty()) {
+                val single = caregiver.linkedPatientId?.let { repository.getUserById(it) }
+                    ?: repository.getUserByEmail("patient@demo.com")
+                if (single != null) {
+                    repository.linkCaregiverToPatient(caregiver.id, single.id)
+                    list = repository.getLinkedPatientsDirect(caregiver.id)
+                }
+            }
+            _linkedPatients.value = list
+            if (_linkedPatient.value == null && list.isNotEmpty()) {
+                val selected = list.firstOrNull { it.id == caregiver.linkedPatientId } ?: list.first()
+                _linkedPatient.value = selected
+                targetPatientIdFlow.value = selected.id
             }
         }
     }
@@ -271,27 +365,57 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val patient = repository.getPatientByCode(code.trim().uppercase())
             if (patient != null) {
                 val currentCaregiver = _currentUser.value ?: return@launch
+                repository.linkCaregiverToPatient(currentCaregiver.id, patient.id)
                 val updated = currentCaregiver.copy(linkedPatientId = patient.id)
                 repository.updateUser(updated)
                 _currentUser.value = updated
                 _linkedPatient.value = patient
                 targetPatientIdFlow.value = patient.id
-                onResult(true, "Successfully linked to ${patient.fullName} (${patient.locationState})")
+                val updatedList = repository.getLinkedPatientsDirect(currentCaregiver.id)
+                _linkedPatients.value = updatedList
+                onResult(true, "Successfully linked ${patient.fullName} (${patient.locationState})")
             } else {
                 onResult(false, "Patient code not found. Please verify the code (e.g. NER-6842).")
             }
         }
     }
 
+    fun unlinkPatient(patientId: Long, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val currentCaregiver = _currentUser.value ?: return@launch
+            repository.unlinkCaregiverPatient(currentCaregiver.id, patientId)
+            val remaining = repository.getLinkedPatientsDirect(currentCaregiver.id)
+            _linkedPatients.value = remaining
+            if (_linkedPatient.value?.id == patientId) {
+                val next = remaining.firstOrNull()
+                _linkedPatient.value = next
+                targetPatientIdFlow.value = next?.id
+                val updated = currentCaregiver.copy(linkedPatientId = next?.id)
+                repository.updateUser(updated)
+                _currentUser.value = updated
+            }
+            onResult(true, "Patient unlinked from your caregiver account.")
+        }
+    }
+
     fun selectMonitoredPatient(patient: UserEntity) {
-        _linkedPatient.value = patient
-        targetPatientIdFlow.value = patient.id
+        viewModelScope.launch {
+            _linkedPatient.value = patient
+            targetPatientIdFlow.value = patient.id
+            val currentCaregiver = _currentUser.value
+            if (currentCaregiver != null) {
+                val updated = currentCaregiver.copy(linkedPatientId = patient.id)
+                repository.updateUser(updated)
+                _currentUser.value = updated
+            }
+        }
     }
 
     fun logout() {
         ttsManager.stop()
         _currentUser.value = null
         _linkedPatient.value = null
+        _linkedPatients.value = emptyList()
         targetPatientIdFlow.value = null
         _currentScreen.value = Screen.Welcome
     }

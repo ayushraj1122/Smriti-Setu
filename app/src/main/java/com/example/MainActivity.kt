@@ -11,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.i18n.StringsProvider
 import com.example.ui.navigation.PatientTab
 import com.example.ui.navigation.Screen
 import com.example.ui.screens.CaregiverAuthScreen
@@ -54,6 +55,7 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
     val reminders by viewModel.reminders.collectAsState()
     val dailyRoutine by viewModel.dailyRoutine.collectAsState()
     val allPatients by viewModel.allPatients.collectAsState()
+    val linkedPatients by viewModel.linkedPatients.collectAsState()
 
     MyApplicationTheme(darkTheme = isDarkMode || highContrast) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -85,7 +87,7 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                             viewModel.setFontSize(nextScale)
                         },
                         onSpeakContext = {
-                            viewModel.speakText("Welcome to Smriti NER. Choose Play Games, Patient Login, or Caregiver Login.")
+                            viewModel.speakText(StringsProvider.get("welcome_spoken_intro", currentLanguage))
                         },
                         onPlayGames = { viewModel.quickLoginDemoPatient() },
                         onPatientLogin = { viewModel.navigateTo(Screen.PatientLogin) },
@@ -115,7 +117,10 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                             viewModel.setFontSize(nextScale)
                         },
                         onSpeakContext = {
-                            viewModel.speakText(if (isSignUp) "Patient Sign Up page" else "Patient Sign In page")
+                            viewModel.speakText(
+                                if (isSignUp) StringsProvider.get("speak_signup_page", currentLanguage)
+                                else StringsProvider.get("speak_login_page", currentLanguage)
+                            )
                         },
                         initialTabIsSignUp = isSignUp,
                         onLogin = { email, pass, onError ->
@@ -148,10 +153,13 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                             viewModel.setFontSize(nextScale)
                         },
                         onSpeakContext = {
-                            viewModel.speakText("Caregiver Login page. Enter email and password or tap Quick Demo.")
+                            viewModel.speakText(StringsProvider.get("caregiver_signin_desc", currentLanguage))
                         },
                         onLogin = { email, pass, onError ->
                             viewModel.loginCaregiver(email, pass, onError)
+                        },
+                        onSignUp = { name, email, pass, state, patientCode, relationship, onSuccess, onError ->
+                            viewModel.signUpCaregiver(name, email, pass, state, patientCode, relationship, onSuccess, onError)
                         },
                         onQuickDemo = { viewModel.quickLoginDemoCaregiver() },
                         onNavigateBack = { viewModel.navigateTo(Screen.Welcome) },
@@ -201,6 +209,7 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                         onTabSelected = { viewModel.setCaregiverTab(it) },
                         caregiverUser = currentUser,
                         linkedPatient = linkedPatient,
+                        linkedPatients = linkedPatients,
                         allPatients = allPatients,
                         onSelectPatient = { viewModel.selectMonitoredPatient(it) },
                         attempts = attempts,
@@ -213,6 +222,7 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                         onAddRoutine = { period, title, desc, time -> viewModel.addRoutineItem(period, title, desc, time) },
                         onDeleteRoutine = { viewModel.deleteRoutineItem(it) },
                         onLinkPatientByCode = { code, cb -> viewModel.linkPatientByCode(code, cb) },
+                        onUnlinkPatient = { patientId, cb -> viewModel.unlinkPatient(patientId, cb) },
                         currentLanguage = currentLanguage,
                         onLanguageSelected = { viewModel.setLanguage(it) },
                         highContrast = highContrast,
@@ -243,6 +253,7 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                         largeButtons = largeButtons,
                         voiceEnabled = voiceEnabled,
                         onSpeak = { viewModel.speakText(it) },
+                        onLanguageSelected = { viewModel.setLanguage(it) },
                         onBackToGames = {
                             viewModel.setPatientTab(PatientTab.GAMES)
                             viewModel.navigateTo(Screen.PatientMain())
@@ -256,6 +267,10 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                                 correctAnswers = correct,
                                 responseTimesMs = times
                             ) { attempt ->
+                                val nextRec = com.example.engine.AdaptiveEngine.getRecommendedGame(
+                                    attempts = attempts + attempt,
+                                    excludeGameId = screen.gameId
+                                )
                                 viewModel.navigateTo(
                                     Screen.GameResult(
                                         gameId = screen.gameId,
@@ -265,7 +280,10 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                                         avgTimeMs = attempt.avgResponseTimeMs,
                                         correct = attempt.correctAnswers,
                                         total = attempt.totalQuestions,
-                                        recommendation = attempt.recommendationMessage
+                                        recommendation = attempt.recommendationMessage,
+                                        nextGameId = nextRec.gameId,
+                                        nextLevel = nextRec.level,
+                                        nextGameTitleKey = nextRec.gameTitleKey
                                     )
                                 )
                             }
@@ -283,17 +301,23 @@ fun SmritiAppRoot(viewModel: AppViewModel) {
                         correct = screen.correct,
                         total = screen.total,
                         recommendation = screen.recommendation,
+                        nextGameId = screen.nextGameId,
+                        nextLevel = screen.nextLevel,
+                        nextGameTitleKey = screen.nextGameTitleKey,
                         currentLanguage = currentLanguage,
                         fontSizeScale = fontSizeScale,
                         highContrast = highContrast,
                         largeButtons = largeButtons,
                         voiceEnabled = voiceEnabled,
                         onSpeak = { viewModel.speakText(it) },
+                        onPlayNextRecommended = { nextId, nextLvl ->
+                            viewModel.navigateTo(Screen.GamePlay(nextId, nextLvl))
+                        },
                         onReplay = {
                             viewModel.navigateTo(Screen.GamePlay(screen.gameId, screen.level))
                         },
                         onBackToGames = {
-                            viewModel.setPatientTab(PatientTab.GAMES)
+                            viewModel.setPatientTab(PatientTab.HOME)
                             viewModel.navigateTo(Screen.PatientMain())
                         }
                     )

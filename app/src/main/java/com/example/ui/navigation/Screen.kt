@@ -19,7 +19,10 @@ sealed class Screen {
         val avgTimeMs: Long,
         val correct: Int,
         val total: Int,
-        val recommendation: String
+        val recommendation: String,
+        val nextGameId: String = "memory_match",
+        val nextLevel: Int = 1,
+        val nextGameTitleKey: String = "game_memory_match"
     ) : Screen()
 }
 

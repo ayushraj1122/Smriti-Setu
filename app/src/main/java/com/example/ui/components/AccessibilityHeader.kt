@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AppLanguage
@@ -56,7 +62,7 @@ fun AccessibilityHeader(
     onCycleFontSize: () -> Unit,
     onSpeakCurrentContext: (() -> Unit)? = null,
     title: String? = null,
-    showDemoBadge: Boolean = true,
+    showDemoBadge: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var langMenuExpanded by remember { mutableStateOf(false) }
@@ -75,7 +81,8 @@ fun AccessibilityHeader(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                .padding(horizontal = 14.dp, vertical = 8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -83,7 +90,12 @@ fun AccessibilityHeader(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Title and Demo badge
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .padding(end = 8.dp)
+                ) {
                     if (showDemoBadge) {
                         Box(
                             modifier = Modifier
@@ -98,7 +110,7 @@ fun AccessibilityHeader(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                     }
 
                     if (!title.isNullOrBlank()) {
@@ -106,7 +118,9 @@ fun AccessibilityHeader(
                             text = title,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (highContrast) Color.White else com.example.ui.theme.VibrantTextPrimary
+                            color = if (highContrast) Color.White else com.example.ui.theme.VibrantTextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -114,7 +128,7 @@ fun AccessibilityHeader(
                 // Quick Accessibility Controls: Language, TTS, High-Contrast, Font Scale
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     // Language dropdown button
                     Box {

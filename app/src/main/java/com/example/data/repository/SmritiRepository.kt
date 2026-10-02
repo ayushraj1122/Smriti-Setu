@@ -26,6 +26,27 @@ class SmritiRepository(private val db: AppDatabase) {
         return db.userDao().getAllPatients()
     }
 
+    fun getLinkedPatientsForCaregiver(caregiverId: Long): Flow<List<UserEntity>> {
+        return db.userDao().getLinkedPatientsForCaregiver(caregiverId)
+    }
+
+    suspend fun getLinkedPatientsDirect(caregiverId: Long): List<UserEntity> {
+        return db.userDao().getLinkedPatientsDirect(caregiverId)
+    }
+
+    suspend fun linkCaregiverToPatient(caregiverId: Long, patientId: Long): Long {
+        return db.userDao().insertLink(
+            com.example.data.model.CaregiverPatientLinkEntity(
+                caregiverId = caregiverId,
+                patientId = patientId
+            )
+        )
+    }
+
+    suspend fun unlinkCaregiverPatient(caregiverId: Long, patientId: Long) {
+        db.userDao().deleteLink(caregiverId, patientId)
+    }
+
     suspend fun insertUser(user: UserEntity): Long {
         return db.userDao().insertUser(user)
     }

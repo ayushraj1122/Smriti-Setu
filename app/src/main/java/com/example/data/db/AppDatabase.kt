@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.data.model.CaregiverPatientLinkEntity
 import com.example.data.model.GameAttemptEntity
 import com.example.data.model.ReminderEntity
 import com.example.data.model.RoutineItemEntity
@@ -16,9 +17,10 @@ import com.example.data.model.UserEntity
         GameAttemptEntity::class,
         ReminderEntity::class,
         RoutineItemEntity::class,
-        SettingsEntity::class
+        SettingsEntity::class,
+        CaregiverPatientLinkEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

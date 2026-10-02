@@ -21,15 +21,23 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AppLanguage
 import com.example.data.model.FontSizeScale
 import com.example.data.model.GameCatalog
 import com.example.data.model.GameQuestion
@@ -75,6 +84,7 @@ fun GamePlayScreen(
     largeButtons: Boolean,
     voiceEnabled: Boolean,
     onSpeak: (String) -> Unit,
+    onLanguageSelected: (String) -> Unit = {},
     onBackToGames: () -> Unit,
     onCompleteGame: (
         totalQuestions: Int,
@@ -87,6 +97,7 @@ fun GamePlayScreen(
     val isMemoryMatch = gameId == "memory_match"
 
     var isPaused by remember { mutableStateOf(false) }
+    var showLanguageMenu by remember { mutableStateOf(false) }
 
     val bg = if (highContrast) Color(0xFF0F172A) else com.example.ui.theme.VibrantBg
     val cardBg = if (highContrast) Color(0xFF1E293B) else Color.White
@@ -101,18 +112,22 @@ fun GamePlayScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
                         IconButton(
                             onClick = { onBackToGames() },
                             modifier = Modifier.testTag("btn_game_back")
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back to Games",
+                                contentDescription = StringsProvider.get("btn_back", currentLanguage),
                                 tint = Color.White
                             )
                         }
@@ -120,22 +135,73 @@ fun GamePlayScreen(
                             text = gameDef?.let { StringsProvider.get(it.titleKey, currentLanguage) } ?: "Game",
                             fontSize = (18f * fontSizeScale.scale).sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = Color.White,
+                            maxLines = 1
                         )
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // In-game Language Switcher
+                        Box {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White.copy(alpha = 0.25f),
+                                modifier = Modifier
+                                    .padding(end = 6.dp)
+                                    .clickable { showLanguageMenu = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Language,
+                                        contentDescription = "Change Language",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = currentLanguage.uppercase(),
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = showLanguageMenu,
+                                onDismissRequest = { showLanguageMenu = false }
+                            ) {
+                                AppLanguage.entries.forEach { lang ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = "${lang.nativeName} (${lang.displayName})",
+                                                fontWeight = if (lang.code == currentLanguage) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        onClick = {
+                                            showLanguageMenu = false
+                                            onLanguageSelected(lang.code)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color.White.copy(alpha = 0.25f),
-                            modifier = Modifier.padding(end = 8.dp)
+                            modifier = Modifier.padding(end = 6.dp)
                         ) {
                             Text(
-                                text = "Level $level",
+                                text = "L$level",
                                 color = Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                             )
                         }
 
@@ -175,21 +241,21 @@ fun GamePlayScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Game Paused",
+                            text = StringsProvider.get("game_paused", currentLanguage),
                             fontSize = (22f * fontSizeScale.scale).sp,
                             fontWeight = FontWeight.Bold,
                             color = textPrimary
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Take your time. Whenever you feel comfortable, tap Resume.",
+                            text = StringsProvider.get("paused_desc", currentLanguage),
                             fontSize = (14f * fontSizeScale.scale).sp,
                             color = textPrimary.copy(alpha = 0.75f),
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(20.dp))
                         AccessibleButton(
-                            text = "Resume Game",
+                            text = StringsProvider.get("btn_resume", currentLanguage),
                             onClick = { isPaused = false },
                             icon = Icons.Default.PlayArrow,
                             isPrimary = true,
@@ -198,7 +264,7 @@ fun GamePlayScreen(
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         AccessibleButton(
-                            text = "Exit to Games",
+                            text = StringsProvider.get("btn_exit", currentLanguage),
                             onClick = { onBackToGames() },
                             isOutlined = true,
                             highContrast = highContrast,
@@ -249,8 +315,8 @@ private fun StandardQuestionGameContent(
     onSpeak: (String) -> Unit,
     onComplete: (correct: Int, total: Int, times: List<Long>) -> Unit
 ) {
-    val questions = remember(gameId, level) {
-        GameQuestionGenerator.generateQuestions(gameId, level)
+    val questions = remember(gameId, level, currentLanguage) {
+        GameQuestionGenerator.generateQuestions(gameId, level, currentLanguage)
     }
 
     var currentIndex by remember { mutableIntStateOf(0) }
@@ -267,7 +333,7 @@ private fun StandardQuestionGameContent(
 
     val currentQ = questions.getOrNull(currentIndex)
 
-    LaunchedEffect(currentIndex) {
+    LaunchedEffect(currentIndex, currentLanguage) {
         questionStartTime = System.currentTimeMillis()
         selectedOptionIndex = null
         feedbackMessage = null
@@ -304,7 +370,7 @@ private fun StandardQuestionGameContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Question ${currentIndex + 1} of ${questions.size}",
+                text = StringsProvider.get("question_indicator", currentLanguage, currentIndex + 1, questions.size),
                 fontSize = (14f * fontSizeScale.scale).sp,
                 fontWeight = FontWeight.Bold,
                 color = textPrimary.copy(alpha = 0.8f)
@@ -321,7 +387,7 @@ private fun StandardQuestionGameContent(
             ) {
                 Icon(
                     imageVector = Icons.Default.VolumeUp,
-                    contentDescription = "Read question aloud",
+                    contentDescription = StringsProvider.get("btn_speak", currentLanguage),
                     tint = if (highContrast) Color(0xFFFACC15) else com.example.ui.theme.VibrantBluePrimary
                 )
             }
@@ -511,14 +577,14 @@ private fun MemoryMatchGameContent(
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        onSpeak("Find matching pairs of cards. Take your time.")
+        onSpeak(StringsProvider.get("msg_memory_intro", currentLanguage))
     }
 
     LaunchedEffect(pairsMatched) {
         if (pairsMatched == totalPairs && totalPairs > 0) {
             val totalTime = System.currentTimeMillis() - startTime.longValue
             delay(800)
-            onSpeak("Excellent memory match! All pairs found.")
+            onSpeak(StringsProvider.get("msg_memory_success", currentLanguage))
             delay(800)
             onComplete(totalPairs, totalPairs, listOf(totalTime))
         }
@@ -540,13 +606,13 @@ private fun MemoryMatchGameContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Pairs Found: $pairsMatched / $totalPairs",
+                text = StringsProvider.get("pairs_found", currentLanguage, pairsMatched, totalPairs),
                 fontSize = (16f * fontSizeScale.scale).sp,
                 fontWeight = FontWeight.Bold,
                 color = textPrimary
             )
             Text(
-                text = "Flips: $totalFlips",
+                text = StringsProvider.get("flips_count", currentLanguage, totalFlips),
                 fontSize = (14f * fontSizeScale.scale).sp,
                 color = textPrimary.copy(alpha = 0.7f)
             )
@@ -615,7 +681,7 @@ private fun MemoryMatchGameContent(
                                                     cards[firstIdx] = cards[firstIdx].copy(isMatched = true)
                                                     cards[secondIdx] = cards[secondIdx].copy(isMatched = true)
                                                     pairsMatched++
-                                                    onSpeak("Pair matched!")
+                                                    onSpeak(StringsProvider.get("msg_pair_matched", currentLanguage))
                                                 } else {
                                                     cards[firstIdx] = cards[firstIdx].copy(isFaceUp = false)
                                                     cards[secondIdx] = cards[secondIdx].copy(isFaceUp = false)

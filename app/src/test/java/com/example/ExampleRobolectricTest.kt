@@ -21,7 +21,7 @@ class ExampleRobolectricTest {
     fun `read string from context`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val appName = context.getString(R.string.app_name)
-        assertEquals("Smriti NER", appName)
+        assertEquals("Smriti Setu", appName)
     }
 
     @Test
@@ -52,6 +52,71 @@ class ExampleRobolectricTest {
         )
         assertEquals(2, rec.recommendedLevel)
         assertTrue(rec.shouldAdvance)
+    }
+
+    @Test
+    fun `test initial recommendation gives level 1 across unplayed games`() {
+        // Empty history -> first game at level 1
+        val rec1 = AdaptiveEngine.getRecommendedGame(emptyList())
+        assertEquals("day_date", rec1.gameId)
+        assertEquals(1, rec1.level)
+
+        // After playing day_date -> next unplayed game at level 1
+        val attempts = listOf(
+            com.example.data.model.GameAttemptEntity(
+                userId = 1L,
+                gameId = "day_date",
+                gameCategory = "orientation",
+                level = 1,
+                timestamp = System.currentTimeMillis(),
+                totalQuestions = 3,
+                correctAnswers = 3,
+                incorrectAnswers = 0,
+                accuracyPercent = 100,
+                avgResponseTimeMs = 3000L,
+                totalScore = 95,
+                recommendationMessage = "Great"
+            )
+        )
+        val rec2 = AdaptiveEngine.getRecommendedGame(attempts)
+        assertEquals("memory_match", rec2.gameId)
+        assertEquals(1, rec2.level)
+    }
+
+    @Test
+    fun `test recommendation rotates and advances level when all games played`() {
+        val now = System.currentTimeMillis()
+        val allPlayedAttempts = AdaptiveEngine.standardSequence.mapIndexed { index, gameId ->
+            com.example.data.model.GameAttemptEntity(
+                userId = 1L,
+                gameId = gameId,
+                gameCategory = "general",
+                level = 1,
+                timestamp = now - ((10 - index) * 100000L), // oldest is day_date
+                totalQuestions = 3,
+                correctAnswers = 3,
+                incorrectAnswers = 0,
+                accuracyPercent = 90,
+                avgResponseTimeMs = 3000L,
+                totalScore = 90,
+                recommendationMessage = "Good"
+            )
+        }
+
+        // Since day_date was least recently played and had 90% accuracy, it rotates to day_date at Level 2!
+        val nextRec = AdaptiveEngine.getRecommendedGame(allPlayedAttempts)
+        assertEquals("day_date", nextRec.gameId)
+        assertEquals(2, nextRec.level)
+    }
+
+    @Test
+    fun `test new localized string keys exist`() {
+        val heroTitle = StringsProvider.get("home_hero_title", "en")
+        assertEquals("Today's Brain Activity", heroTitle)
+        val recLabel = StringsProvider.get("label_recommended", "en")
+        assertEquals("Recommended", recLabel)
+        val playNext = StringsProvider.get("btn_play_next_recommended", "en")
+        assertEquals("Play Next Activity", playNext)
     }
 }
 

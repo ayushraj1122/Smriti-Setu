@@ -1,5 +1,5 @@
 {
-  "name": "Smriti NER",
+  "name": "Smriti Setu",
   "description": "Multilingual cognitive games and caregiver support platform for dementia care in North East India",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

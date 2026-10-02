@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +54,7 @@ fun SplashScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(bg)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .clickable { onContinue() }
             .padding(24.dp),
         contentAlignment = Alignment.Center
@@ -70,7 +74,7 @@ fun SplashScreen(
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.ic_launcher_smriti),
-                    contentDescription = "Smriti NER Logo",
+                    contentDescription = "Smriti Setu",
                     modifier = Modifier
                         .size(86.dp)
                         .clip(CircleShape)
